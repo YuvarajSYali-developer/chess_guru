@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chess Personal Coach | Phase 4</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <canvas id="hero3d"></canvas>
+
+    <header class="hero page" id="page1">
+      <nav class="nav">
+        <div class="logo">
+          <span class="logo-dot"></span>
+          <span>Chess Personal Coach</span>
+        </div>
+        <div class="nav-actions">
+          <button class="ghost" id="themeToggle">Nebula Mode</button>
+          <button class="primary" id="runDemo">Run Demo</button>
+        </div>
+      </nav>
+
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Phase 4 - Production Web App</p>
+          <h1>
+            Detect blunders.<br />
+            Explain why they happen.<br />
+            Train smarter.
+          </h1>
+          <p class="subtitle">
+            A full-stack chess analysis system that blends Stockfish ground truth
+            with CNN difficulty prediction to deliver personalized improvement plans.
+          </p>
+          <div class="hero-cta">
+            <button class="primary" id="startAnalyze">Analyze My Games</button>
+            <button class="ghost" id="viewPipeline">View Pipeline</button>
+          </div>
+          <div class="hero-stats">
+            <div>
+              <span class="stat-number">3.6M+</span>
+              <span class="stat-label">positions analyzed</span>
+            </div>
+            <div>
+              <span class="stat-number">89%</span>
+              <span class="stat-label">difficulty accuracy</span>
+            </div>
+            <div>
+              <span class="stat-number">6</span>
+              <span class="stat-label">insight layers</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-card">
+          <div class="card-header">
+            <h3>Live Analysis Console</h3>
+            <span class="pill">Connected</span>
+          </div>
+          <form id="analyzeForm">
+            <label>
+              Lichess Username
+              <input type="text" name="username" placeholder="chess_hunter" required />
+            </label>
+            <label>
+              Games to Analyze
+              <input type="number" name="games" min="1" max="50" value="10" />
+            </label>
+            <label>
+              Mode
+              <select name="mode">
+                <option value="standard">Standard</option>
+                <option value="rapid">Rapid</option>
+                <option value="blitz" selected>Blitz</option>
+                <option value="bullet">Bullet</option>
+              </select>
+            </label>
+            <div class="toggle-row">
+              <label class="switch">
+                <input type="checkbox" name="include_pgn" />
+                <span class="slider"></span>
+              </label>
+              <span>Include PGN in report</span>
+            </div>
+            <label>
+              Or Upload PGN
+              <input type="file" name="pgn_file" accept=".pgn" />
+            </label>
+            <button class="primary full" type="submit">Start Analysis</button>
+          </form>
+          <div class="console" id="consoleLog">
+            <div class="line">Awaiting command...</div>
+          </div>
+          <div class="error-banner" id="errorBanner"></div>
+        </div>
+      </div>
+    </header>
+
+    <main class="page" id="page2">
+      <section class="section results">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Analysis Dashboard</p>
+            <h2>Personalized performance report</h2>
+          </div>
+          <div class="section-actions">
+            <button class="ghost" id="backToInput">Back</button>
+            <button class="primary" id="downloadReport">Download Report</button>
+          </div>
+        </div>
+        <div class="results-grid">
+          <div class="result-card phase-card">
+            <h3>Phase Accuracy</h3>
+            <canvas id="phaseChart" width="520" height="280"></canvas>
+          </div>
+          <div class="result-card compare-card">
+            <h3>Stockfish CPL vs CNN Difficulty</h3>
+            <canvas id="comparisonChart" width="520" height="280"></canvas>
+          </div>
+          <div class="result-card patterns-card">
+            <h3>Top Mistake Patterns</h3>
+            <ul class="pattern-list" id="patternList">
+              <li>Back-rank blindness after trades</li>
+              <li>Loose minor pieces in open files</li>
+              <li>Misjudged pawn races in endgame</li>
+              <li>Overextension after winning exchanges</li>
+            </ul>
+          </div>
+          <div class="result-card summary-card">
+            <h3>Coach Summary</h3>
+            <p id="summaryText">
+              You play confidently in the opening but overcommit in tactical
+              middlegames. Your highest CPL spikes come from multi-threat
+              positions where pieces are overloaded. The system recommends
+              tactical motif training and endgame conversion drills.
+            </p>
+            <div class="badges">
+              <span class="badge">Weakest: Endgame</span>
+              <span class="badge">Risk: Tactical Oversights</span>
+              <span class="badge">Focus: Conversion</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section dashboard">
+        <div class="section-title">
+          <p class="eyebrow">Move Review</p>
+          <h2>Board analysis and suggestions</h2>
+        </div>
+        <div class="dashboard-grid">
+          <div class="board-card">
+            <div class="board-header">
+              <h3>Interactive Board</h3>
+              <div class="board-controls">
+                <button class="ghost" id="prevMove">Prev</button>
+                <button class="ghost" id="nextMove">Next</button>
+              </div>
+            </div>
+            <div class="board" id="chessBoard"></div>
+            <div class="move-meta" id="moveMeta">Select a move to see details.</div>
+          </div>
+          <div class="move-list-card">
+            <h3>Moves & Suggestions</h3>
+            <ul class="move-list" id="moveList"></ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

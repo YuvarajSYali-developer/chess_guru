@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: chess_guru
+    env: python
+    plan: free
+    region: oregon
+    buildCommand: >
+      pip install -r backend/requirements.txt &&
+      mkdir -p backend/stockfish &&
+      curl -L https://github.com/official-stockfish/Stockfish/releases/download/sf_17.1/stockfish-ubuntu-x86-64-avx2.tar -o /tmp/stockfish.tar &&
+      tar -xf /tmp/stockfish.tar -C /tmp &&
+      cp "$(find /tmp -type f -name stockfish-ubuntu-x86-64-avx2 | head -n 1)" backend/stockfish/stockfish &&
+      chmod +x backend/stockfish/stockfish
+    startCommand: uvicorn backend.app:app --host 0.0.0.0 --port $PORT --app-dir .
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: CORS_ORIGINS
+        value: https://chess-guru.onrender.com,https://chess_guru.onrender.com
+      - key: MODEL_PATH
+        value: /opt/render/project/src/backend/models/difficulty_model_final.keras
+      - key: STOCKFISH_PATH
+        value: /opt/render/project/src/backend/stockfish/stockfish

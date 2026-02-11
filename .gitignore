@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Environment
+.env
+*.env
+
+# Large/local data artifacts
+*.csv
+*.npz
+*.npy
+*.pkl
+*.h5
+*.keras
+*.tfrecord
+*.zip
+
+# Runtime outputs
+reports/
+logs/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Keep placeholders for deploy paths
+!backend/models/.gitkeep
+!backend/stockfish/.gitkeep
+!backend/models/*.keras
+!backend/models/*.h5
+backend/stockfish/*
+!backend/stockfish/.gitkeep
