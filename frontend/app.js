@@ -250,12 +250,14 @@ const runAnalysis = async (formData, pgnFile, allowDemoFallback = false) => {
 
     if (!response.ok) {
       let errText = "API request failed.";
-      try {
-        const errJson = await response.json();
-        errText = errJson.detail || errText;
-      } catch (e) {
-        const raw = await response.text();
-        if (raw) errText = raw;
+      const raw = await response.text();
+      if (raw) {
+        try {
+          const errJson = JSON.parse(raw);
+          errText = errJson.detail || raw;
+        } catch (e) {
+          errText = raw;
+        }
       }
       throw new Error(errText);
     }
