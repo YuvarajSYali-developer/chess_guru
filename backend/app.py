@@ -306,32 +306,31 @@ def health() -> Dict[str, Any]:
 def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
     if not req.username and not req.pgn_text:
         raise HTTPException(status_code=400, detail="username or pgn_text required")
-
-    model = load_model()
-    stockfish_path = resolve_stockfish_path()
-    engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
-
-    if req.pgn_text:
-        pgn_text = req.pgn_text
-    else:
-        pgn_text = fetch_lichess_pgn(req.username, req.games, req.mode)
-
-    games = parse_pgn_games(pgn_text, req.games)
-    if not games:
-        raise HTTPException(status_code=400, detail="No games found")
-
-    phase_stats: Dict[str, Dict[str, Any]] = {
-        "Opening": {"cpl": [], "mistakes": 0, "moves": 0},
-        "Middlegame": {"cpl": [], "mistakes": 0, "moves": 0},
-        "Endgame": {"cpl": [], "mistakes": 0, "moves": 0},
-    }
-
-    difficulty_scores: List[float] = []
-    top_patterns = set()
-    move_details: List[MoveDetail] = []
-
-    moves_processed = 0
     try:
+        model = load_model()
+        stockfish_path = resolve_stockfish_path()
+        engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
+
+        if req.pgn_text:
+            pgn_text = req.pgn_text
+        else:
+            pgn_text = fetch_lichess_pgn(req.username, req.games, req.mode)
+
+        games = parse_pgn_games(pgn_text, req.games)
+        if not games:
+            raise HTTPException(status_code=400, detail="No games found")
+
+        phase_stats: Dict[str, Dict[str, Any]] = {
+            "Opening": {"cpl": [], "mistakes": 0, "moves": 0},
+            "Middlegame": {"cpl": [], "mistakes": 0, "moves": 0},
+            "Endgame": {"cpl": [], "mistakes": 0, "moves": 0},
+        }
+
+        difficulty_scores: List[float] = []
+        top_patterns = set()
+        move_details: List[MoveDetail] = []
+
+        moves_processed = 0
         for game in games:
             board = game.board()
             for ply, move in enumerate(game.mainline_moves(), start=1):
@@ -385,77 +384,84 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
                 moves_processed += 1
             if moves_processed >= req.max_moves:
                 break
-    finally:
-        engine.quit()
 
-    phase_breakdown = []
-    weakest_phase = "Opening"
-    worst_score = -1.0
-    for phase, stats in phase_stats.items():
-        if stats["moves"] == 0:
-            continue
-        avg_cpl = float(np.mean(stats["cpl"])) if stats["cpl"] else 0.0
-        mistake_rate = stats["mistakes"] / stats["moves"]
-        accuracy = max(0.0, 1.0 - avg_cpl / 200.0)
-        phase_breakdown.append(
-            PhaseStats(
-                phase=phase,
-                accuracy=accuracy,
-                avg_cpl=avg_cpl,
-                mistake_rate=mistake_rate,
+        phase_breakdown = []
+        weakest_phase = "Opening"
+        worst_score = -1.0
+        for phase, stats in phase_stats.items():
+            if stats["moves"] == 0:
+                continue
+            avg_cpl = float(np.mean(stats["cpl"])) if stats["cpl"] else 0.0
+            mistake_rate = stats["mistakes"] / stats["moves"]
+            accuracy = max(0.0, 1.0 - avg_cpl / 200.0)
+            phase_breakdown.append(
+                PhaseStats(
+                    phase=phase,
+                    accuracy=accuracy,
+                    avg_cpl=avg_cpl,
+                    mistake_rate=mistake_rate,
+                )
             )
+            if mistake_rate > worst_score:
+                worst_score = mistake_rate
+                weakest_phase = phase
+
+        difficulty_score = float(np.mean(difficulty_scores)) if difficulty_scores else 0.0
+
+        recommendations = [
+            f"Focus training on {weakest_phase.lower()} positions.",
+            "Review games with CPL spikes above 100.",
+            "Drill tactical puzzles around your most frequent motifs.",
+        ]
+
+        summary_text = (
+            f"Analyzed {moves_processed} moves. Your weakest phase is {weakest_phase}. "
+            "CPL spikes align with high difficulty predictions, suggesting tactical "
+            "complexity is the main source of errors."
         )
-        if mistake_rate > worst_score:
-            worst_score = mistake_rate
-            weakest_phase = phase
 
-    difficulty_score = float(np.mean(difficulty_scores)) if difficulty_scores else 0.0
+        os.makedirs(REPORT_DIR, exist_ok=True)
+        report_name = f"report_{req.username or 'pgn'}_{int(time.time())}.pdf"
+        report_path = os.path.join(REPORT_DIR, report_name)
+        generate_pdf_report(
+            summary={
+                "summary": summary_text,
+                "recommendations": recommendations,
+            },
+            phase_stats=[p.model_dump() for p in phase_breakdown],
+            output_path=report_path,
+        )
 
-    recommendations = [
-        f"Focus training on {weakest_phase.lower()} positions.",
-        "Review games with CPL spikes above 100.",
-        "Drill tactical puzzles around your most frequent motifs.",
-    ]
-
-    summary_text = (
-        f"Analyzed {moves_processed} moves. Your weakest phase is {weakest_phase}. "
-        "CPL spikes align with high difficulty predictions, suggesting tactical "
-        "complexity is the main source of errors."
-    )
-
-    os.makedirs(REPORT_DIR, exist_ok=True)
-    report_name = f"report_{req.username or 'pgn'}_{int(time.time())}.pdf"
-    report_path = os.path.join(REPORT_DIR, report_name)
-    generate_pdf_report(
-        summary={
-            "summary": summary_text,
-            "recommendations": recommendations,
-        },
-        phase_stats=[p.model_dump() for p in phase_breakdown],
-        output_path=report_path,
-    )
-
-    return AnalyzeResponse(
-        status="ok",
-        username=req.username or "pgn_upload",
-        games_analyzed=min(req.games, len(games)),
-        difficulty_score=difficulty_score,
-        weakest_phase=weakest_phase,
-        summary=summary_text,
-        phase_breakdown=phase_breakdown,
-        top_patterns=sorted(list(top_patterns)) or ["No dominant pattern detected"],
-        recommendations=recommendations,
-        moves=move_details,
-        artifacts={
-            "report_pdf": report_path,
-            "report_docx": None,
-            "charts": None,
-        },
-        model_path=MODEL_PATH,
-        stockfish_path=stockfish_path,
-        report_path=report_path,
-        report_url=f"/api/report/{report_name}",
-    )
+        return AnalyzeResponse(
+            status="ok",
+            username=req.username or "pgn_upload",
+            games_analyzed=min(req.games, len(games)),
+            difficulty_score=difficulty_score,
+            weakest_phase=weakest_phase,
+            summary=summary_text,
+            phase_breakdown=phase_breakdown,
+            top_patterns=sorted(list(top_patterns)) or ["No dominant pattern detected"],
+            recommendations=recommendations,
+            moves=move_details,
+            artifacts={
+                "report_pdf": report_path,
+                "report_docx": None,
+                "charts": None,
+            },
+            model_path=MODEL_PATH,
+            stockfish_path=stockfish_path,
+            report_path=report_path,
+            report_url=f"/api/report/{report_name}",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        try:
+            engine.quit()
+        except Exception:
+            pass
 
 
 @app.post("/api/analyze_pgn", response_model=AnalyzeResponse)
