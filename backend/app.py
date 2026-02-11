@@ -107,9 +107,22 @@ def phase_from_move_number(move_number: int) -> str:
 
 
 def load_model() -> keras.Model:
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
-    return keras.models.load_model(MODEL_PATH)
+    configured = Path(MODEL_PATH)
+    candidates: List[Path] = []
+
+    if configured.is_absolute():
+        candidates.append(configured)
+    else:
+        candidates.append(Path.cwd() / configured)
+        candidates.append(Path(__file__).resolve().parent / configured)
+        candidates.append(Path(__file__).resolve().parent / "models" / configured.name)
+
+    for candidate in candidates:
+        if candidate.exists():
+            return keras.models.load_model(str(candidate))
+
+    tried = ", ".join(str(p) for p in candidates)
+    raise FileNotFoundError(f"Model not found. Checked: {tried}")
 
 
 def resolve_stockfish_path() -> str:
